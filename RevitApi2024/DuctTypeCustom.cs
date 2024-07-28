@@ -15,5 +15,7 @@ namespace RevitApi2024.Shared
         }
         public ElementId Id {  get; set; }
         public string Name { get; set; }
+
+        public bool Check {  get; set; }
     }
 }

@@ -19,12 +19,29 @@ namespace RevitApi2024
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
-            var allSystem = new FilteredElementCollector(doc).OfClass(typeof(MEPSystemType)).Cast<MechanicalSystemType>();
+
+            ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            List<Line> lines = new List<Line>();
+            foreach (ElementId id in selectedIds)
+            {
+                DetailCurve detailCurve = doc.GetElement(id) as DetailCurve;
+                if (detailCurve != null)
+                {
+                    Curve curve = detailCurve.GeometryCurve as Curve;
+                    Line lineNew = curve as Line;
+                    if (lineNew != null)
+                    {
+                        lines.Add(lineNew);
+                    }
+                }
+            }
+
+            var allSystem = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
 
             ComboBoxWpf comboboxWpf = new ComboBoxWpf();
             comboboxWpf.comboboxSystemType.ItemsSource= allSystem;
-            comboboxWpf.ShowDialog();
-            MEPSystemType systemTypeChoose = comboboxWpf.comboboxSystemType.SelectedItem as MEPSystemType;
+            
+            
 
             //var allSystem2 = new FilteredElementCollector(doc).OfClass(typeof(MEPSystemType)).Cast<MechanicalSystemType>();
             //ComboBoxWpf comboBoxWpf2 = new ComboBoxWpf();
@@ -44,6 +61,24 @@ namespace RevitApi2024
             }
             listDuctCustom = listDuctCustom.OrderBy(x=>x.Name).ToList();
             comboboxWpf.comboboxDuctType.ItemsSource= listDuctCustom;
+            comboboxWpf.ShowDialog();
+            MechanicalSystemType systemTypeChoose = comboboxWpf.comboboxSystemType.SelectedItem as MechanicalSystemType;
+            DuctTypeCustom ductTypeCostumChoose = comboboxWpf.comboboxDuctType.SelectedItem as DuctTypeCustom;
+
+            Level level = doc.ActiveView.GenLevel;
+
+            foreach (Line line in lines)
+            {
+                using(Transaction t= new Transaction(doc, "CreateDuct"))
+                {
+                    t.Start();
+                    XYZ start = line.GetEndPoint(0);
+                    XYZ end = line.GetEndPoint(1);
+                    Autodesk.Revit.DB.Mechanical.Duct.Create(doc, systemTypeChoose.Id, ductTypeCostumChoose.Id, level.Id, start,end);
+                    t.Commit();
+                }
+                
+            }
 
             return Result.Succeeded;
         }

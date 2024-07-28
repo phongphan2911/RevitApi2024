@@ -25,5 +25,10 @@ namespace RevitApi2024.DemoWpf
         {
             InitializeComponent();
         }
+
+        private void btnCreateDuct(object sender, RoutedEventArgs e)
+        {
+            this.Close();
+        }
     }
 }
