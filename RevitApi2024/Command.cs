@@ -1,84 +1,104 @@
 ﻿using Autodesk.Revit.Attributes;
 using Autodesk.Revit.DB;
+using Autodesk.Revit.DB.Mechanical;
 using Autodesk.Revit.UI;
-using System;
+using RevitApi2024.DemoWpf;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Autodesk.Revit.DB.Mechanical;
-using RevitApi2024.DemoWpf;
-using RevitApi2024.Shared;
 
 namespace RevitApi2024
 {
     [Transaction(TransactionMode.Manual)]
     public class Command : IExternalCommand
     {
-        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements)
+        public Result Execute(ExternalCommandData commandData, ref string message, ElementSet elements, UIDocument uiDoc)
         {
             UIDocument uiDoc = commandData.Application.ActiveUIDocument;
             Document doc = uiDoc.Document;
+            var selectedIds = uiDoc.Selection.GetElementIds();
 
-            ICollection<ElementId> selectedIds = uiDoc.Selection.GetElementIds();
+            List<MechanicalSystemType> ductSystem = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType)).
+                Cast<MechanicalSystemType>().ToList();
+            List<DuctType> ductTypes = new FilteredElementCollector(doc).OfClass(typeof(DuctType)).Cast<DuctType>().ToList();
+            comboBox.comboDuctsys.ItemsSource = ductSystem;
+            comboBox.comboxDuctType.ItemsSource = ductTypes;
+            comboBox.ShowDialog();
+
+            MechanicalSystemType selectedDuctsys = comboBox.comboDuctsys.SelectedItem as MechanicalSystemType;
+            DuctType selectedDuctType = comboBox.comboxDuctType.SelectedItem as DuctType;
+
             List<Line> lines = new List<Line>();
-            foreach (ElementId id in selectedIds)
+            while (true)
             {
-                DetailCurve detailCurve = doc.GetElement(id) as DetailCurve;
-                if (detailCurve != null)
+                try
                 {
-                    Curve curve = detailCurve.GeometryCurve as Curve;
-                    Line lineNew = curve as Line;
-                    if (lineNew != null)
+                    Reference r = uiDoc.Selection.PickObject(Autodesk.Revit.UI.Selection.ObjectType.Element, "Pick Line");
+                    DetailLine e = doc.GetElement(r) as DetailLine;
+                    if (e != null) 
                     {
-                        lines.Add(lineNew);
+                        Curve curve = e.GeometryCurve as Curve;
+                        lines.Add(curve as Line);
                     }
                 }
+                catch 
+                {
+                    break;
+                };
             }
-
-            var allSystem = new FilteredElementCollector(doc).OfClass(typeof(MechanicalSystemType)).Cast<MechanicalSystemType>();
-
-            ComboBoxWpf comboboxWpf = new ComboBoxWpf();
-            comboboxWpf.comboboxSystemType.ItemsSource= allSystem;
             
-            
-
-            //var allSystem2 = new FilteredElementCollector(doc).OfClass(typeof(MEPSystemType)).Cast<MechanicalSystemType>();
-            //ComboBoxWpf comboBoxWpf2 = new ComboBoxWpf();
-            //comboBoxWpf2.comboboxDuctType.ItemsSource= allSystem;
-            //comboBoxWpf2.ShowDialog();
-            //MEPSystemType typeDuctChoose = comboBoxWpf2.comboboxSystemType.SelectedItem as MEPSystemType ;
-            
-            List<DuctType> ductTypes = new FilteredElementCollector(doc).OfClass(typeof(DuctType))
-                .Cast<DuctType>().ToList();
-            List<DuctTypeCustom> listDuctCustom = new List<DuctTypeCustom>();
-            foreach (var ductType in ductTypes)
-            {
-                ElementId id = ductType.Id;
-                string name = $"{ductType.FamilyName}: {ductType.Name} ";
-                DuctTypeCustom ductTypeCustom = new DuctTypeCustom(id, name);
-                listDuctCustom.Add(ductTypeCustom);
-            }
-            listDuctCustom = listDuctCustom.OrderBy(x=>x.Name).ToList();
-            comboboxWpf.comboboxDuctType.ItemsSource= listDuctCustom;
-            comboboxWpf.ShowDialog();
-            MechanicalSystemType systemTypeChoose = comboboxWpf.comboboxSystemType.SelectedItem as MechanicalSystemType;
-            DuctTypeCustom ductTypeCostumChoose = comboboxWpf.comboboxDuctType.SelectedItem as DuctTypeCustom;
-
-            Level level = doc.ActiveView.GenLevel;
+            List<Duct> ducts = new List<Duct>();
 
             foreach (Line line in lines)
             {
-                using(Transaction t= new Transaction(doc, "CreateDuct"))
+                using (Transaction t = new Transaction(doc, "Create Duct"))
                 {
-                    t.Start();
-                    XYZ start = line.GetEndPoint(0);
-                    XYZ end = line.GetEndPoint(1);
-                    Autodesk.Revit.DB.Mechanical.Duct.Create(doc, systemTypeChoose.Id, ductTypeCostumChoose.Id, level.Id, start,end);
-                    t.Commit();
+
                 }
-                
             }
+
+
+                //using (Transaction t = new Transaction(doc, "aaa"))
+                //{
+                //    t.Start();
+                //    newType = typeSelect.Duplicate(nameType);
+                //    t.Commit();
+                //}
+                //foreach (Line lineNew in lines)
+                //{
+                //    using (Transaction t = new Transaction(doc, "CreateDuct"))
+                //    {
+                //        t.Start();
+                //        XYZ start = line.GetEndPoint(0);
+                //        XYZ end = line.GetEndPoint(1);
+                //        Autodesk.Revit.DB.Mechanical.Duct.Create(doc, systemTypeChoose.Id, ductCustomTypeChose.Id, level.Id, start, end);
+                //        t.Commit();
+                //    }
+                //}
+
+                //loc systemtype
+                
+            while (true)
+            {
+                try
+                {
+                    IList<Reference> r = uiDoc.Selection.PickObjects(Autodesk.Revit.UI.Selection.ObjectType.Element);
+                    Element e = doc.GetElement(r) as Element;
+                    if (e is DetailLine)
+                    {
+                        DetailLine detailL = (DetailLine)e;
+                        lines.Add(detailL.GeometryCurve as Line);
+                    }
+
+                }
+                catch
+                {
+                    break;
+                }
+
+            }
+
+            
+
 
             return Result.Succeeded;
         }
